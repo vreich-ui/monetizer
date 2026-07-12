@@ -2,7 +2,26 @@
 
 Standalone, multi-tenant monetization engine for a network of agent-operated content properties. Projects are dumb renderers; the engine owns offer supply, decisioning, the click path, and measurement.
 
-**Status: design phase.** The full development plan lives in [`docs/plan/`](docs/plan/00-overview.md):
+## Layout
+
+- `engine/` — the service: resolve API, redirect/click path, beacon, webhooks, job workers, attribution resolver, MCP control server. TypeScript + Hono + Postgres.
+- `packages/context-taxonomy/` — the versioned context contract content agents author surfaces against.
+- `packages/astro-kit/` — build-time resolve client + dumb Astro components + beacon snippet for projects.
+- `docs/OPERATIONS.md` — **accounts to create, env vars to set, credential handoff, runbook.**
+- `docs/plan/` — the design documents (the code follows them).
+
+## Quickstart
+
+```bash
+pnpm install
+cp .env.example .env        # fill DATABASE_URL, CRED_MASTER_KEY, ADMIN_TOKEN
+pnpm migrate
+pnpm dev                    # engine on :8787
+pnpm mcp                    # stdio MCP control server (credential handoff etc.)
+pnpm test                   # vitest against a local monetizer_test db
+```
+
+## Design docs
 
 | Doc | Contents |
 |---|---|

@@ -1,0 +1,12 @@
+{
+  "name": "monetizer-workspace",
+  "private": true,
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm --filter @monetizer/engine test",
+    "dev": "pnpm --filter @monetizer/engine dev",
+    "migrate": "pnpm --filter @monetizer/engine migrate",
+    "mcp": "pnpm --filter @monetizer/engine mcp"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

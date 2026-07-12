@@ -1,0 +1,15 @@
+{
+  "name": "@monetizer/astro-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./components/*": "./src/components/*"
+  },
+  "scripts": { "typecheck": "tsc --noEmit" },
+  "dependencies": {
+    "@monetizer/context-taxonomy": "workspace:*"
+  },
+  "devDependencies": { "typescript": "^5.7.2", "@types/node": "^22.10.2" }
+}

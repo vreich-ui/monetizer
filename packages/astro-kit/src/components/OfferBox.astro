@@ -1,0 +1,33 @@
+---
+// Single-offer card. Dumb renderer: everything comes from the decision payload.
+// data-mz-decision is what the beacon reads for impression/viewability events.
+import type { ResolvedSurface } from '../index.ts'
+
+interface Props {
+  surface: ResolvedSurface | undefined
+  class?: string
+}
+const { surface, class: className = '' } = Astro.props
+const offer = surface?.offers?.[0]
+---
+
+{
+  offer && surface && (
+    <aside class={`mz-offer-box ${className}`} data-mz-decision={surface.decision_id}>
+      {offer.image_url && <img src={offer.image_url} alt={offer.title} loading="lazy" />}
+      <div class="mz-offer-body">
+        <p class="mz-offer-title">{offer.title}</p>
+        {offer.price && (
+          <p class="mz-offer-price">
+            {offer.price.currency} {offer.price.amount.toFixed(2)}
+            <span class="mz-price-asof"> (price as of {new Date(offer.price.as_of).toLocaleDateString()})</span>
+          </p>
+        )}
+        <a href={offer.href} rel="sponsored nofollow" target="_blank">
+          {offer.cta_text} on {offer.merchant}
+        </a>
+        {offer.disclosure && <p class="mz-disclosure">{offer.disclosure}</p>}
+      </div>
+    </aside>
+  )
+}
