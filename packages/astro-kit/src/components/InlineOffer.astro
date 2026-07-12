@@ -1,0 +1,20 @@
+---
+// Inline text link inside prose. Children are the link text.
+import type { ResolvedSurface } from '../index.ts'
+
+interface Props {
+  surface: ResolvedSurface | undefined
+}
+const { surface } = Astro.props
+const offer = surface?.offers?.[0]
+---
+
+{
+  offer && surface ? (
+    <a href={offer.href} rel="sponsored nofollow" target="_blank" data-mz-decision={surface.decision_id}>
+      <slot>{offer.title}</slot>
+    </a>
+  ) : (
+    <slot />
+  )
+}

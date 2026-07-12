@@ -1,0 +1,14 @@
+---
+// Page-level affiliate disclosure (contract obligation, docs/plan/02 §4).
+// Render once, above the first monetized surface.
+interface Props {
+  disclosures: string[]
+}
+const { disclosures } = Astro.props
+---
+
+{
+  disclosures.length > 0 && (
+    <p class="mz-page-disclosure">{disclosures.join(' ')}</p>
+  )
+}

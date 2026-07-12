@@ -1,0 +1,37 @@
+---
+// Multi-offer comparison table (k offers from one decision).
+import type { ResolvedSurface } from '../index.ts'
+
+interface Props {
+  surface: ResolvedSurface | undefined
+  class?: string
+}
+const { surface, class: className = '' } = Astro.props
+const offers = surface?.offers ?? []
+---
+
+{
+  offers.length > 0 && surface && (
+    <div class={`mz-comparison ${className}`} data-mz-decision={surface.decision_id}>
+      <table>
+        <tbody>
+          {offers.map((offer) => (
+            <tr>
+              <td>{offer.image_url && <img src={offer.image_url} alt={offer.title} loading="lazy" width="80" />}</td>
+              <td>
+                <p class="mz-offer-title">{offer.title}</p>
+                {offer.rank === 1 && <span class="mz-badge">Top pick</span>}
+              </td>
+              <td>{offer.price && `${offer.price.currency} ${offer.price.amount.toFixed(2)}`}</td>
+              <td>
+                <a href={offer.href} rel="sponsored nofollow" target="_blank">
+                  {offer.cta_text}
+                </a>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
