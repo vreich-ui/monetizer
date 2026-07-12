@@ -8,6 +8,7 @@ Standalone, multi-tenant monetization engine for a network of agent-operated con
 - `packages/context-taxonomy/` — the versioned context contract content agents author surfaces against.
 - `packages/astro-kit/` — build-time resolve client + dumb Astro components + beacon snippet for projects.
 - `docs/OPERATIONS.md` — **accounts to create, env vars to set, credential handoff, runbook.**
+- `deploy/gcp.md` — Cloud Run + Cloud SQL deployment (the target hosting).
 - `docs/plan/` — the design documents (the code follows them).
 
 ## Quickstart

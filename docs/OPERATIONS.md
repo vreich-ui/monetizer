@@ -2,24 +2,26 @@
 
 The single human touchpoint is credential handoff (docs/plan/00). This page is the complete shopping list: what to create, what to hand back, and how the engine receives it.
 
-## 1. Infrastructure accounts (needed first)
+## 1. Infrastructure (Google Cloud)
 
-| What | Where | Hand back |
+One GCP project covers all three infrastructure needs — full commands in [`deploy/gcp.md`](../deploy/gcp.md):
+
+| What | GCP service | Notes |
 |---|---|---|
-| Postgres | [Neon](https://neon.tech) or [Supabase](https://supabase.com) (free tiers fine) | `DATABASE_URL` connection string |
-| Engine hosting | [Fly.io](https://fly.io) or [Railway](https://railway.app) (needs long-running process, not serverless) | account access or just deploy + set env vars |
-| Redirect domain | DNS: create `go.<your-network-domain>` pointing at the engine deployment | the hostname you chose |
+| Postgres | **Cloud SQL** (Postgres 16, smallest tier) | engine connects over the Cloud SQL unix socket |
+| Engine hosting | **Cloud Run** | must run with `--min-instances=1 --no-cpu-throttling` (the job worker lives in-process) |
+| Redirect/engine URL | the default `https://….run.app` URL | no custom domain needed; `REDIRECT_BASE_URL` defaults to `PUBLIC_BASE_URL` |
+| Secrets | **Secret Manager** | `CRED_MASTER_KEY`, `ADMIN_TOKEN` |
 
 ## 2. Environment variables (set on the engine host)
 
 ```
-DATABASE_URL=postgres://...                  # from Neon/Supabase
+DATABASE_URL=postgres://monetizer:<pw>@/monetizer?host=/cloudsql/<PROJECT>:<REGION>:monetizer-pg
 CRED_MASTER_KEY=<openssl rand -base64 32>    # generate ONCE, back it up; losing it = re-registering all credentials
 ADMIN_TOKEN=<openssl rand -hex 32>           # control-surface auth
-PUBLIC_BASE_URL=https://engine.<domain>      # the engine's own public URL
-REDIRECT_BASE_URL=https://go.<domain>        # the click domain (may equal PUBLIC_BASE_URL)
-PORT=8787                                    # optional
-POLICY_EPSILON=0.1                           # optional, exploration rate
+PUBLIC_BASE_URL=https://monetizer-<hash>-uc.a.run.app   # the Cloud Run URL (set after first deploy)
+# REDIRECT_BASE_URL is optional — defaults to PUBLIC_BASE_URL
+# PORT is injected by Cloud Run; POLICY_EPSILON=0.1 optional
 ```
 
 Per content project (Netlify site env):
@@ -35,11 +37,11 @@ Priority order. Each row ends with a `register_credential` MCP call.
 | # | Network | Sign up | What to hand back (exact secrets) |
 |---|---|---|---|
 | 1 | **Impact** | impact.com → publisher/partner account | `{ account_sid, auth_token }` (Settings → API) |
-| 2 | **Awin** | awin.com publisher signup (~$5 refundable deposit) | API token — *adapter pending; register as `csv:awin` and feed datafeed CSVs meanwhile* |
-| 3 | **CJ** | cj.com publisher signup | Personal Access Token — *adapter pending; same CSV path meanwhile* |
+| 2 | **Awin** | awin.com publisher signup (~$5 refundable deposit) | `{ api_token, publisher_id }` — transactions API wired; catalog via datafeed CSV drops (link template helper: `awinDeeplinkTemplate`) |
+| 3 | **CJ** | cj.com publisher signup | `{ personal_access_token, company_id }` — commissions API wired; catalog via feed CSV drops |
 | 4 | **Stripe** | stripe.com → create products with prices for digital goods | `{ api_key (restricted: products/prices/payment_links read+write, checkout read), webhook_secret }` — point a webhook at the URL `register_credential` returns, events: `checkout.session.completed`, `charge.refunded` |
 | 5 | **Amazon Associates** | affiliate-program.amazon.com | *No API yet (deferred).* Create one **tracking ID per property** (e.g. `mysite-20`) and run `set_tenant_tracking` with them. Offers via `ingest_csv`; earnings reports via CSV drop. Creators API creds later, once qualifying sales exist. |
-| 6 | Strackr *(after ≥2 networks live)* | strackr.com, API plan | API credentials — collapses CJ/Awin/long-tail report polling |
+| 6 | Strackr *(optional, after ≥2 networks live)* | strackr.com, API plan | `{ api_id, api_key }` — aggregated reporting wired; observations re-home to the matching direct source. Use EITHER Strackr OR a network's direct poller per network, not both |
 | 7 | Buy Me a Coffee / Patreon *(when a quiz/tool surface exists)* | — | API tokens |
 
 Direct merchant programs: no signup dance — `register_credential` with network `direct:<merchant-slug>`, then `ingest_csv` their offer/report files.

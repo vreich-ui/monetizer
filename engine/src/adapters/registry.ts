@@ -4,9 +4,20 @@ import { impactAdapter } from './impact/index.ts'
 import { stripeAdapter } from './stripe/index.ts'
 import { csvInboxAdapter } from './csv-inbox/index.ts'
 import { amazonAdapter } from './amazon/index.ts'
+import { awinAdapter } from './awin/index.ts'
+import { cjAdapter } from './cj/index.ts'
+import { strackrAdapter } from './strackr/index.ts'
 import { newId } from '../ids.ts'
 
-const ADAPTERS: NetworkAdapter[] = [impactAdapter, stripeAdapter, csvInboxAdapter, amazonAdapter]
+const ADAPTERS: NetworkAdapter[] = [
+  impactAdapter,
+  awinAdapter,
+  cjAdapter,
+  stripeAdapter,
+  csvInboxAdapter,
+  amazonAdapter,
+  strackrAdapter,
+]
 
 /** `direct:<slug>` and `csv:<slug>` networks route to the CSV inbox adapter. */
 export function adapterFor(network: string): NetworkAdapter | null {
