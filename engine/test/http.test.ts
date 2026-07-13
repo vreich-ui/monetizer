@@ -25,6 +25,8 @@ beforeAll(async () => {
     broker: testBroker(db),
     policy: new HeuristicPolicy({ ...DEFAULT_PARAMS, epsilon: 0 }),
     redirectBase: REDIRECT_BASE,
+    publicBaseUrl: REDIRECT_BASE,
+    adminToken: 'test-admin-token',
     hashSalt: TEST_MASTER_KEY.slice(0, 16),
   })
 })

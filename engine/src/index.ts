@@ -58,11 +58,17 @@ try {
 const broker = new CredentialBroker(db, config.CRED_MASTER_KEY)
 const policy = new HeuristicPolicy({ ...DEFAULT_PARAMS, epsilon: config.POLICY_EPSILON })
 
+if (!config.ADMIN_TOKEN) {
+  console.warn('WARNING: ADMIN_TOKEN not set — the web MCP control endpoint (/mcp) will refuse all requests.')
+}
+
 const app = createApp({
   db,
   broker,
   policy,
   redirectBase: config.REDIRECT_BASE_URL,
+  publicBaseUrl: config.PUBLIC_BASE_URL,
+  adminToken: config.ADMIN_TOKEN,
   hashSalt: config.CRED_MASTER_KEY.slice(0, 16) || 'dev-salt',
 })
 

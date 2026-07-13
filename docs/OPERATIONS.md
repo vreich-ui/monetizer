@@ -46,16 +46,20 @@ Priority order. Each row ends with a `register_credential` MCP call.
 
 Direct merchant programs: no signup dance — `register_credential` with network `direct:<merchant-slug>`, then `ingest_csv` their offer/report files.
 
-## 4. Credential handoff flow
+## 4. Credential handoff & administration (MCP control plane)
 
-```
-pnpm mcp        # stdio MCP server (env: DATABASE_URL, CRED_MASTER_KEY, PUBLIC_BASE_URL)
-```
-Then, via MCP tools:
+The 12 control-plane tools are served two ways from the **same** code:
+
+- **Web (agentic):** `POST https://<service-url>/mcp` — Streamable HTTP, bearer auth with `ADMIN_TOKEN`. This is what agents connect to. Point any MCP client at that URL with header `Authorization: Bearer $ADMIN_TOKEN`. Stateless (fine for Cloud Run and concurrent agents). Returns 401 without the token, 503 if `ADMIN_TOKEN` is unset.
+- **Local (operator):** `pnpm mcp` — stdio, over cloud-sql-proxy (env: `DATABASE_URL`, `CRED_MASTER_KEY`, `PUBLIC_BASE_URL`). Use for the initial hands-on setup.
+
+Onboarding a property, via either transport:
 1. `register_tenant {slug, name, domains, netlify_build_hook_url}` → returns the tenant token (store it in the project's Netlify env).
 2. `set_tenant_tracking {slug, namespaces: {amazon: "mysite-20", impact: "mysite"}}`
 3. `register_credential {network, secrets}` → verifies immediately, queues catalog sync, returns the webhook URL where relevant.
 4. `list_sources` / `performance` / `demand_signals` to watch it run.
+
+See [ADMIN.md](ADMIN.md) for the full tool catalog, an agent connection example, and how this maps to a human admin UI.
 
 ## 5. Runbook
 
