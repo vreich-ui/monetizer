@@ -6,12 +6,15 @@ import { redirectRoutes } from './redirect.ts'
 import { resolveRoutes } from './resolve.ts'
 import { beaconRoutes } from './beacon.ts'
 import { webhookRoutes } from './webhooks.ts'
+import { mcpRoutes } from './mcp.ts'
 
 export interface AppDeps {
   db: Db
   broker: CredentialBroker
   policy: DecisionPolicy
   redirectBase: string
+  publicBaseUrl: string
+  adminToken: string
   hashSalt: string
 }
 
@@ -25,5 +28,14 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/', resolveRoutes({ db: deps.db, policy: deps.policy, redirectBase: deps.redirectBase }))
   app.route('/', beaconRoutes({ db: deps.db, hashSalt: deps.hashSalt }))
   app.route('/', webhookRoutes({ db: deps.db, broker: deps.broker }))
+  app.route(
+    '/',
+    mcpRoutes({
+      db: deps.db,
+      broker: deps.broker,
+      publicBaseUrl: deps.publicBaseUrl,
+      adminToken: deps.adminToken,
+    }),
+  )
   return app
 }
