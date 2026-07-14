@@ -52,6 +52,23 @@ Streamable HTTP (JSON-RPC), stateless, bearer-authenticated. `401` without a val
 | `demand_signals` | Unmet demand → what content to make next |
 | `trigger_rebuild` | Refresh a property's rendered offers |
 | `pause_offer` / `pause_source` | Kill-switches; existing links fail over instantly |
+| `register_connection` | **Generic supplier onboarding** — arbitrary supplier via base_url + auth model + secrets + collection recipes |
+| `list_connections` / `delete_connection` | Manage generic connections (secrets never returned) |
+| `test_request` | Author aid — one guarded request + detected array paths, so an agent builds a recipe cheaply |
+| `run_collection` | Run a connection's recipes on demand (they also run on schedule) |
+
+### Generic connections — agent-authored, engine-executed (the AI-cost lever)
+
+Beyond the seven built-in networks, an agent can register **any** HTTP supplier and describe how to collect from it, once. The engine then runs that collection deterministically on a schedule — **no AI in the loop per cycle**, which is the point: author once (a little AI), monitor forever (no AI).
+
+`register_connection` accepts a bounded-but-liberal shape:
+- **`auth`** — one of `none | bearer | api_key_header | basic | query_param | oauth2_client_credentials`. A `value_template` composes secret fields, e.g. `"{app_id}:{app_secret}"` or `"Bearer {token}"`.
+- **`secrets`** — an arbitrary `{key: value}` map (≤50 keys), encrypted at rest, referenced by `{key}` in the template. Never returned by any tool.
+- **`recipes[]`** — declarative collection jobs. Each has a `sink` (`transactions` | `offers`), a request (`path`, `query`, pagination), a `records_path` (dot-path to the array), and a `map` of `our_field → 'response.dot.path'` (prefix `=` for a literal). The engine fetches, paginates, maps, and writes to the offer store / conversion pipeline.
+
+Authoring loop for an agent: `register_connection` (auth only) → `test_request` to see the response shape → add `recipes` → `run_collection` to confirm → done; it now runs on the report/catalog schedule.
+
+**Safety:** every outbound request is **SSRF-guarded** — private/loopback/link-local ranges and the cloud metadata endpoint are refused (an agent can't point the engine at internal infrastructure), only `http(s)`, with per-request timeouts and a response-size cap.
 
 ### Connecting
 

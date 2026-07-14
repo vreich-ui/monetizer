@@ -9,6 +9,7 @@ import { performanceReport } from '../core/performance.ts'
 import { adapterFor, ensureSource, getSource, listSources } from '../adapters/registry.ts'
 import { enqueue } from '../jobs/queue.ts'
 import { newId } from '../ids.ts'
+import { registerConnectionTools } from './connections.ts'
 
 /**
  * MCP control plane (docs/plan/02 §MCP surface), as a factory so the SAME tool
@@ -221,6 +222,10 @@ export function createMcpServer({ db, broker, publicBaseUrl }: McpDeps): McpServ
       return text({ ok: true })
     },
   )
+
+  // Generic agentic connections (register_connection, list_connections,
+  // test_request, run_collection, delete_connection).
+  registerConnectionTools(server, { db, broker, publicBaseUrl })
 
   return server
 }
