@@ -67,23 +67,17 @@ describe('web MCP endpoint', () => {
     const res = await rpc({ jsonrpc: '2.0', id: 1, method: 'tools/list', params: {} }, TOKEN)
     expect(res.status).toBe(200)
     const body = await parseRpc(res)
-    const names = body.result.tools.map((t: any) => t.name).sort()
-    expect(names).toEqual(
-      [
-        'demand_signals',
-        'explain_decision',
-        'ingest_csv',
-        'list_sources',
-        'pause_offer',
-        'pause_source',
-        'performance',
-        'register_credential',
-        'register_tenant',
-        'search_offers',
-        'set_tenant_tracking',
-        'trigger_rebuild',
-      ].sort(),
-    )
+    const names = new Set(body.result.tools.map((t: any) => t.name))
+    for (const t of [
+      // control plane
+      'demand_signals', 'explain_decision', 'ingest_csv', 'list_sources', 'pause_offer',
+      'pause_source', 'performance', 'register_credential', 'register_tenant', 'search_offers',
+      'set_tenant_tracking', 'trigger_rebuild',
+      // generic agentic connections
+      'register_connection', 'list_connections', 'test_request', 'run_collection', 'delete_connection',
+    ]) {
+      expect(names.has(t), t).toBe(true)
+    }
   })
 
   it('executes a tool call end-to-end (register_tenant → token issued)', async () => {

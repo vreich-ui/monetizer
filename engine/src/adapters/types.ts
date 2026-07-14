@@ -12,6 +12,7 @@ export interface SourceRow {
   attribution_fidelity: Fidelity
   status: string
   health: Record<string, unknown>
+  config?: Record<string, unknown>
 }
 
 /**
