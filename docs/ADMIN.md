@@ -53,10 +53,16 @@ Streamable HTTP (JSON-RPC), stateless, bearer-authenticated. `401` without a val
 | `trigger_rebuild` | Refresh a property's rendered offers |
 | `pause_offer` / `pause_source` | Kill-switches; existing links fail over instantly |
 
-### Connecting an agent
+### Connecting
 
-Any MCP-capable agent works. Claude Agent SDK / Claude Code example:
+The endpoint supports **two auth paths to the same tools**, so every Claude surface can attach:
 
+**A. Claude connector UI (claude.ai / Claude Desktop) — OAuth.** These do a discovery + OAuth flow, not a static header. The server ships a full OAuth 2.1 Authorization Server (metadata, dynamic client registration, PKCE). To connect:
+1. Settings → Connectors → **Add custom connector** → URL = `https://<service-url>/mcp`.
+2. Claude discovers the OAuth endpoints and opens a **consent page**. Enter your **`ADMIN_TOKEN`** there (it's the login secret) and click Authorize.
+3. Claude receives an access token and attaches. Done — no header configuration.
+
+**B. Claude Code / Agent SDK / scripts — static bearer.** Simpler for headless agents:
 ```jsonc
 // .mcp.json  (or the SDK's mcpServers config)
 {
@@ -69,6 +75,9 @@ Any MCP-capable agent works. Claude Agent SDK / Claude Code example:
   }
 }
 ```
+Or: `claude mcp add --transport http monetizer https://<service-url>/mcp --header "Authorization: Bearer $MONETIZER_ADMIN_TOKEN"`.
+
+Both land on the same 12 tools. The OAuth path mints per-connection tokens gated by the admin token at consent; the bearer path uses the admin token directly. CORS + preflight are handled so browser-based connectors work.
 
 The agent then calls `register_credential`, `list_sources`, `performance`, etc. as normal tools. An "operations agent" on a schedule (check health, react to `demand_signals`, pause misbehaving sources) is the intended end state.
 
