@@ -1,6 +1,7 @@
 import type { AdapterContext, Capabilities, NetworkAdapter, SourceRow } from '../types.ts'
 import { recordObservation } from '../types.ts'
 import { csvInboxAdapter } from '../csv-inbox/index.ts'
+import { syncAwinFeeds } from './feeds.ts'
 import type { NormalizedStatus } from '../../domain/types.ts'
 
 /**
@@ -69,7 +70,11 @@ export const awinAdapter: NetworkAdapter = {
     try {
       const accounts = await awinGet(ctx, source, '/accounts?type=publisher')
       const n = accounts?.accounts?.length ?? 0
-      return { ok: n > 0, detail: `authenticated; ${n} publisher account(s)` }
+      const creds = await ctx.broker.get(source.id)
+      const feeds = creds?.feed_api_key
+        ? 'product feeds enabled'
+        : 'add feed_api_key to auto-import product catalog'
+      return { ok: n > 0, detail: `authenticated; ${n} publisher account(s); ${feeds}` }
     } catch (err) {
       return { ok: false, detail: String(err) }
     }
@@ -116,5 +121,14 @@ export const awinAdapter: NetworkAdapter = {
     return { observations }
   },
 
+  // Automated product-feed catalog import (no human CSV handling) — needs a
+  // feed_api_key credential. Falls back to a no-op (with a health note) when
+  // that key is absent, so it's safe to schedule unconditionally.
+  async syncCatalog(ctx, source) {
+    const res = await syncAwinFeeds(ctx, source)
+    return { upserted: res.upserted }
+  },
+
+  // Manual CSV drops remain available as a fallback.
   ingestCsv: csvInboxAdapter.ingestCsv,
 }
