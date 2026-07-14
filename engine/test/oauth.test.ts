@@ -86,6 +86,28 @@ describe('/mcp auth gating', () => {
   })
 })
 
+describe('resilience', () => {
+  it('lazily accepts an unregistered client_id at /authorize (no DCR required)', async () => {
+    const params = new URLSearchParams({
+      response_type: 'code',
+      client_id: 'never_registered_client',
+      redirect_uri: 'https://claude.ai/callback',
+      code_challenge: 'x'.repeat(43),
+      code_challenge_method: 'S256',
+    })
+    const page = await req(`/oauth/authorize?${params}`)
+    expect(page.status).toBe(200)
+    expect(await page.text()).toContain('Admin token')
+  })
+  it('serves AS metadata at the suffixed + OIDC aliases too', async () => {
+    for (const p of ['/.well-known/oauth-authorization-server/mcp', '/.well-known/openid-configuration']) {
+      const res = await req(p)
+      expect(res.status).toBe(200)
+      expect((await res.json()).token_endpoint).toBe('http://engine.test/oauth/token')
+    }
+  })
+})
+
 describe('full OAuth authorization-code + PKCE flow', () => {
   it('register → authorize (with admin token) → token → authenticated /mcp', async () => {
     // 1. Dynamic client registration

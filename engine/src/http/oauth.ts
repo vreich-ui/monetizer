@@ -76,7 +76,7 @@ export function oauthRoutes(deps: { db: Db; adminToken: string }): Hono {
   app.get('/.well-known/oauth-protected-resource', protectedResource)
   app.get('/.well-known/oauth-protected-resource/mcp', protectedResource)
 
-  app.get('/.well-known/oauth-authorization-server', (c) => {
+  const asMetadata = (c: any) => {
     const b = base(c)
     return c.json({
       issuer: b,
@@ -89,7 +89,12 @@ export function oauthRoutes(deps: { db: Db; adminToken: string }): Hono {
       token_endpoint_auth_methods_supported: ['none'],
       scopes_supported: ['mcp'],
     })
-  })
+  }
+  // RFC 8414 root, the resource-suffixed variant some clients probe, and an
+  // OIDC-discovery alias — all return the same authorization-server metadata.
+  app.get('/.well-known/oauth-authorization-server', asMetadata)
+  app.get('/.well-known/oauth-authorization-server/mcp', asMetadata)
+  app.get('/.well-known/openid-configuration', asMetadata)
 
   // --- Dynamic Client Registration (RFC 7591) ---
   app.post('/oauth/register', async (c) => {
@@ -118,9 +123,10 @@ export function oauthRoutes(deps: { db: Db; adminToken: string }): Hono {
     const q = c.req.query()
     const err = validateAuthzParams(q)
     if (err) return c.text(`invalid_request: ${err}`, 400)
-    // Confirm client exists (registered via DCR).
-    const { rows } = await deps.db.query(`select 1 from oauth_clients where client_id = $1`, [q.client_id])
-    if (rows.length === 0) return c.text('invalid_request: unknown client_id', 400)
+    // Lazily accept the presented client (resilient to clients that skip DCR
+    // or reuse a cached client_id from an earlier attempt). Security is the
+    // admin-token consent + PKCE, not client-id validation.
+    await ensureClient(deps.db, q.client_id, q.redirect_uri)
     return c.html(consentPage(q))
   })
 
@@ -132,6 +138,7 @@ export function oauthRoutes(deps: { db: Db; adminToken: string }): Hono {
     if (!deps.adminToken || !safeEq(String(q.admin_token ?? ''), deps.adminToken)) {
       return c.html(consentPage(q, 'Incorrect admin token — try again.'), 401)
     }
+    await ensureClient(deps.db, q.client_id, q.redirect_uri)
     const code = rand(24)
     await deps.db.query(
       `insert into oauth_codes (code, client_id, redirect_uri, code_challenge, code_challenge_method, scope, expires_at)
@@ -182,6 +189,20 @@ export function oauthRoutes(deps: { db: Db; adminToken: string }): Hono {
   })
 
   return app
+}
+
+/** Ensure a client row exists (idempotent) — lazy/dynamic registration. */
+async function ensureClient(db: Db, clientId: string | undefined, redirectUri: string | undefined): Promise<void> {
+  if (!clientId) return
+  await db.query(
+    `insert into oauth_clients (client_id, client_name, redirect_uris)
+     values ($1, 'auto', case when $2::text is null then '{}'::text[] else array[$2::text] end)
+     on conflict (client_id) do update set
+       redirect_uris = (
+         select array(select distinct unnest(oauth_clients.redirect_uris || excluded.redirect_uris))
+       )`,
+    [clientId, redirectUri ?? null],
+  )
 }
 
 function validateAuthzParams(q: Record<string, string>): string | null {
