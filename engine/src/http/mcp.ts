@@ -1,23 +1,28 @@
 import { Hono } from 'hono'
-import { timingSafeEqual } from 'node:crypto'
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js'
 import type { Db } from '../db/client.ts'
 import type { CredentialBroker } from '../core/credentials.ts'
 import { createMcpServer } from '../mcp/tools.ts'
+import { isAuthorized, baseUrlOf } from './oauth.ts'
 
 /**
- * Authenticated web MCP endpoint (POST /mcp) — the agentic control surface.
- * Bearer-token auth against ADMIN_TOKEN; stateless (a fresh server + transport
- * per request, JSON responses), which suits Cloud Run's request model and
- * multiple concurrent agent callers. The identical tool set is available on
- * stdio for local operator use (mcp/server.ts).
+ * Web MCP endpoint (POST/GET/DELETE /mcp) — the agentic control surface.
+ * Two auth paths, both landing on the same tools:
+ *   - Static bearer = ADMIN_TOKEN — for agents / Claude Code / curl (simple).
+ *   - OAuth access token — for the Claude connector UI (see oauth.ts).
+ * On a missing/invalid token it returns 401 with a WWW-Authenticate pointer to
+ * the OAuth resource metadata, which is what triggers a connector's OAuth flow.
+ * Stateless Streamable HTTP with JSON responses (scale-safe on Cloud Run);
+ * CORS + OPTIONS so browser-based connectors can call it.
  */
 
-function tokenMatches(provided: string, expected: string): boolean {
-  const a = Buffer.from(provided)
-  const b = Buffer.from(expected)
-  return a.length === b.length && timingSafeEqual(a, b)
-}
+const CORS_HEADERS = (origin: string) => ({
+  'Access-Control-Allow-Origin': origin,
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, Mcp-Session-Id, MCP-Protocol-Version, Accept',
+  'Access-Control-Expose-Headers': 'Mcp-Session-Id, WWW-Authenticate',
+  'Access-Control-Max-Age': '86400',
+})
 
 export function mcpRoutes(deps: {
   db: Db
@@ -27,14 +32,26 @@ export function mcpRoutes(deps: {
 }): Hono {
   const app = new Hono()
 
-  app.all('/mcp', async (c) => {
+  app.options('/mcp', (c) => {
+    const origin = c.req.header('origin') ?? '*'
+    return c.body(null, 204, CORS_HEADERS(origin))
+  })
+
+  const handle = async (c: any) => {
+    const origin = c.req.header('origin') ?? '*'
+    const cors = CORS_HEADERS(origin)
+
     if (!deps.adminToken) {
-      // Refuse to expose the control plane without a configured secret.
-      return c.json({ error: 'mcp endpoint disabled: ADMIN_TOKEN not set' }, 503)
+      return c.json({ error: 'mcp endpoint disabled: ADMIN_TOKEN not set' }, 503, cors)
     }
+
     const provided = c.req.header('authorization')?.replace(/^Bearer\s+/i, '') ?? ''
-    if (!tokenMatches(provided, deps.adminToken)) {
-      return c.json({ error: 'unauthorized' }, 401, { 'WWW-Authenticate': 'Bearer' })
+    if (!(await isAuthorized(deps.db, deps.adminToken, provided))) {
+      const b = baseUrlOf(c.req.url, c.req.header('host'), c.req.header('x-forwarded-proto'))
+      return c.json({ error: 'unauthorized' }, 401, {
+        ...cors,
+        'WWW-Authenticate': `Bearer resource_metadata="${b}/.well-known/oauth-protected-resource"`,
+      })
     }
 
     const server = createMcpServer({ db: deps.db, broker: deps.broker, publicBaseUrl: deps.publicBaseUrl })
@@ -47,8 +64,15 @@ export function mcpRoutes(deps: {
       void server.close()
     })
     await server.connect(transport)
-    return transport.handleRequest(c.req.raw)
-  })
+    const res = await transport.handleRequest(c.req.raw)
+    // Attach CORS to the transport's Response.
+    for (const [k, v] of Object.entries(cors)) res.headers.set(k, v)
+    return res
+  }
+
+  app.post('/mcp', handle)
+  app.get('/mcp', handle)
+  app.delete('/mcp', handle)
 
   return app
 }

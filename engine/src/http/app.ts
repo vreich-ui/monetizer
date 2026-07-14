@@ -7,6 +7,7 @@ import { resolveRoutes } from './resolve.ts'
 import { beaconRoutes } from './beacon.ts'
 import { webhookRoutes } from './webhooks.ts'
 import { mcpRoutes } from './mcp.ts'
+import { oauthRoutes } from './oauth.ts'
 
 export interface AppDeps {
   db: Db
@@ -28,6 +29,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/', resolveRoutes({ db: deps.db, policy: deps.policy, redirectBase: deps.redirectBase }))
   app.route('/', beaconRoutes({ db: deps.db, hashSalt: deps.hashSalt }))
   app.route('/', webhookRoutes({ db: deps.db, broker: deps.broker }))
+  app.route('/', oauthRoutes({ db: deps.db, adminToken: deps.adminToken }))
   app.route(
     '/',
     mcpRoutes({
